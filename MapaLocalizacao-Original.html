@@ -1,0 +1,1357 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prancha Cartográfica — Mapa de Localização Municipal (IBGE)</title>
+<style>
+:root{
+  --texto:#2C2C2B;
+  --texto-2:#7D7A75;
+  --superficie:#F9F8F7;
+  --superficie-2:#F0EFED;
+  --borda:#E6E5E3;
+  --acento:#2783DE;
+  --acento-suave:#E5F2FC;
+  --erro:#E56458;
+  --erro-suave:#FCE9E7;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  color:var(--texto);
+  background:var(--superficie-2);
+  font-size:16px;line-height:1.5;
+}
+#app{display:flex;height:100%;overflow:hidden}
+.sidebar{
+  width:330px;flex:0 0 330px;
+  background:#fff;border-right:1px solid var(--borda);
+  padding:16px 16px 12px;
+  display:flex;flex-direction:column;gap:12px;
+  overflow-y:auto;
+}
+.brand{display:flex;align-items:center;gap:10px;padding-bottom:12px;border-bottom:1px solid var(--borda)}
+.brand-badge{
+  width:36px;height:36px;border-radius:8px;flex:0 0 36px;
+  background:var(--acento-suave);color:var(--acento);
+  display:flex;align-items:center;justify-content:center;
+}
+.brand h1{font-size:15px;font-weight:700;line-height:1.25}
+.brand p{font-size:11.5px;color:var(--texto-2);margin-top:2px}
+.form-row{display:flex;gap:12px;width:100%}
+.form-row .field{flex:1;min-width:0}
+.form-row .field.compact-color{flex:0 0 64px}
+.field label{display:block;font-size:12.5px;font-weight:600;margin-bottom:4px;color:var(--texto)}
+.field select,.field input[type=text]{
+  width:100%;height:38px;padding:0 10px;
+  border:1px solid var(--borda);border-radius:8px;
+  font:inherit;font-size:13.5px;color:var(--texto);background:#fff;
+}
+.field select:focus,.field input:focus,.btn:focus,.switch input:focus-visible+.trilho{
+  outline:2px solid var(--acento);outline-offset:2px;
+}
+.field select:disabled{background:var(--superficie);color:var(--texto-2)}
+.linha-cor{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.linha-cor label{margin-bottom:0}
+input[type=color]{
+  width:100%;height:38px;border:1px solid var(--borda);border-radius:8px;
+  padding:2px;background:#fff;cursor:pointer;
+}
+.switches{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px 12px;
+  background:var(--superficie);
+  border:1px solid var(--borda);
+  border-radius:8px;
+  padding:12px;
+}
+.switch{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;min-height:22px;line-height:1.2}
+.switch input{position:absolute;opacity:0;width:1px;height:1px}
+.trilho{
+  width:32px;height:18px;border-radius:9px;background:#D6D3CF;position:relative;
+  transition:background .15s ease;flex:0 0 32px;
+}
+.trilho::after{
+  content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;
+  background:#fff;transition:left .15s ease;box-shadow:0 1px 2px rgba(0,0,0,.2);
+}
+.switch input:checked+.trilho{background:var(--acento)}
+.switch input:checked+.trilho::after{left:16px}
+.actions{display:flex;gap:10px}
+.btn{
+  flex:1;min-width:0;
+  height:40px;border-radius:8px;border:1px solid var(--borda);
+  background:#fff;color:var(--texto);font:inherit;font-size:13.5px;font-weight:600;
+  cursor:pointer;transition:background .12s ease,border-color .12s ease;
+  padding:0 8px;
+}
+.btn:hover:not(:disabled){background:var(--superficie)}
+.btn.primario{background:var(--acento);border-color:var(--acento);color:#fff}
+.btn.primario:hover:not(:disabled){background:#1F6FBF}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.status{font-size:12px;color:var(--texto-2);min-height:18px}
+.status.ok{color:#46A171}
+.status.erro{color:var(--erro)}
+.rodape{margin-top:auto;padding-top:10px;border-top:1px solid var(--borda);
+  font-size:10.5px;color:var(--texto-2);line-height:1.35}
+#globo-container{display:none;flex-direction:column;gap:8px;margin:12px 0;padding:12px;background:var(--superficie);border:1px solid var(--borda);border-radius:8px;align-items:center}
+#globo{width:100%;max-width:200px;height:auto}
+#globo-texto{font-size:11px;text-align:center;color:var(--texto-2);line-height:1.4}
+#info-container{display:none;flex-direction:column;gap:8px;margin:4px 0;background:var(--superficie);border:1px solid var(--borda);border-radius:8px;padding:14px;flex:1;overflow-y:auto;font-size:11.5px;}
+#info-container h3{font-size:12px;font-weight:700;color:var(--texto);text-align:center;margin-bottom:4px}
+#info-lista{display:flex;flex-direction:column;gap:8px;color:var(--texto-2)}
+.palco{flex:1;display:flex;align-items:center;justify-content:center;padding:24px;min-width:0;height:100%;overflow:hidden}
+.prancha-wrap{
+  position:relative;
+  width:100%;
+  max-width:min(1380px, calc((100vh - 48px) * 1123 / 794));
+  max-height:100%;
+  aspect-ratio:1123/794;
+  background:#fff;border:1px solid var(--borda);border-radius:4px;
+  box-shadow:0 1px 2px rgba(0,0,0,.05),0 4px 12px rgba(0,0,0,.04);
+  overflow:hidden;
+}
+#prancha{position:absolute;inset:0;width:100%;height:100%;display:block}
+.overlay{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:14px;text-align:center;
+  background:rgba(255,255,255,.94);padding:32px;
+}
+.overlay[hidden]{display:none}
+.overlay .icone{font-size:34px;line-height:1}
+.overlay h2{font-size:17px;font-weight:700}
+.overlay p{font-size:14px;color:var(--texto-2);max-width:420px}
+.overlay.erro{background:rgba(255,255,255,.97)}
+.overlay.erro .caixa-erro{
+  background:var(--erro-suave);border:1px solid #F3C1BC;border-radius:8px;
+  padding:14px 18px;font-size:13.5px;color:#9E3D34;max-width:440px;
+}
+.spinner{
+  width:38px;height:38px;border-radius:50%;
+  border:4px solid var(--superficie-2);border-top-color:var(--acento);
+  animation:girar .8s linear infinite;
+}
+@keyframes girar{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spinner{animation-duration:2.4s}}
+@media (max-width:980px){
+  html,body{overflow:auto;height:auto}
+  #app{flex-direction:column;height:auto;overflow:auto}
+  .sidebar{width:100%;flex:none;border-right:none;border-bottom:1px solid var(--borda);height:auto;max-height:none;padding:20px;gap:16px}
+  .form-row{gap:16px}
+  .field select,.field input[type=text],input[type=color]{height:44px}
+  .btn{height:46px;font-size:14.5px}
+  .switches{grid-template-columns:1fr;gap:10px}
+  .switch{font-size:13.5px}
+  .actions{flex-direction:column}
+  .palco{padding:16px;height:auto}
+  .prancha-wrap{max-width:100%;max-height:none;width:100%}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-badge" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
+          <path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/>
+        </svg>
+      </div>
+      <div>
+        <h1>Prancha Cartográfica</h1>
+        <p>Mapas de localização municipal</p>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="field">
+        <label for="selEstado">Estado (UF)</label>
+        <select id="selEstado" aria-label="Selecionar estado">
+          <option value="">Carregando estados…</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="selMunicipio">Município</label>
+        <select id="selMunicipio" disabled aria-label="Selecionar município">
+          <option value="">Selecione a UF</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="field">
+        <label for="inpAutor">Autor / Instituição</label>
+        <input type="text" id="inpAutor" placeholder="Ex.: Maria Silva — UFMG" maxlength="80">
+      </div>
+      <div class="field compact-color">
+        <label for="inpCor">Cor</label>
+        <input type="color" id="inpCor" value="#B03A2E" aria-label="Cor de destaque">
+      </div>
+    </div>
+
+    <div class="switches">
+      <label class="switch" title="Grade de coordenadas"><input type="checkbox" id="chkGraticula" checked><span class="trilho" aria-hidden="true"></span>Grade coord.</label>
+      <label class="switch" title="Municípios vizinhos"><input type="checkbox" id="chkVizinhos" checked><span class="trilho" aria-hidden="true"></span>Mun. vizinhos</label>
+      <label class="switch" title="Mini-mapas de contexto"><input type="checkbox" id="chkInsets" checked><span class="trilho" aria-hidden="true"></span>Mini-mapas</label>
+      <label class="switch" title="Mancha urbana (Setores Censitários)"><input type="checkbox" id="chkManchaUrbana"><span class="trilho" aria-hidden="true"></span>Mancha urbana</label>
+      <label class="switch" title="Rodovias principais"><input type="checkbox" id="chkRodovias"><span class="trilho" aria-hidden="true"></span>Rodovias</label>
+      <label class="switch" title="Rios principais"><input type="checkbox" id="chkRios"><span class="trilho" aria-hidden="true"></span>Rios principais</label>
+    </div>
+
+    <div class="actions">
+      <button class="btn primario" id="btnGerar" disabled>Gerar mapa</button>
+      <button class="btn" id="btnExportar" disabled title="Exportar PNG em alta resolução (300 DPI)">Exportar PNG</button>
+    </div>
+
+    <div id="globo-container">
+      <svg id="globo" xmlns="http://www.w3.org/2000/svg"></svg>
+      <div id="globo-texto"></div>
+    </div>
+
+    <div id="info-container">
+      <h3>Panorama Municipal</h3>
+      <div id="info-lista"></div>
+    </div>
+
+    <p class="status" id="status" role="status"></p>
+
+    <footer class="rodape">
+      Dados: IBGE — API de Malhas Territoriais (v3) e API de Localidades (v1).
+      Sistema de referência: SIRGAS 2000 (EPSG:4674). Prancha em proporção A4 paisagem.
+    </footer>
+  </aside>
+
+  <main class="palco">
+    <div class="prancha-wrap">
+      <svg id="prancha" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1123 794" role="img"
+           aria-label="Prancha cartográfica de localização municipal"></svg>
+
+      <div class="overlay" id="overlay">
+        <div class="icone" aria-hidden="true">🗺️</div>
+        <h2>Nenhum mapa gerado ainda</h2>
+        <p>Selecione um <strong>estado</strong> e um <strong>município</strong> no painel ao lado e clique em <strong>Gerar mapa</strong> para montar a prancha de localização.</p>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+'use strict';
+const FORMATO_GEOJSON = encodeURIComponent('application/vnd.geo+json');
+const IBGE_LOCALIDADES = 'https://servicodados.ibge.gov.br/api/v1/localidades';
+const IBGE_MALHAS = 'https://servicodados.ibge.gov.br/api/v3/malhas';
+const API = {
+  estados: IBGE_LOCALIDADES + '/estados?orderBy=nome',
+  municipios: (uf) => IBGE_LOCALIDADES + '/estados/' + uf + '/municipios?orderBy=nome',
+  malhaBrasil: IBGE_MALHAS + '/paises/BR?formato=' + FORMATO_GEOJSON + '&qualidade=minima',
+  malhaBrasilUFs: IBGE_MALHAS + '/paises/BR?formato=' + FORMATO_GEOJSON + '&intrarregiao=UF&qualidade=minima',
+  malhaEstado: (uf) => IBGE_MALHAS + '/estados/' + uf + '?formato=' + FORMATO_GEOJSON + '&qualidade=maxima',
+  malhaMunicipios: (uf) => IBGE_MALHAS + '/estados/' + uf + '?formato=' + FORMATO_GEOJSON + '&intrarregiao=municipio&qualidade=maxima',
+  mundo: 'https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson',
+};
+
+const PRANCHA = { W: 1123, H: 794 };
+const EXPORT = { W: 3508, H: 2480 };
+
+const CORES = {
+  texto: '#2C2C2B', texto2: '#55524E', texto3: '#7D7A75',
+  vizinhoFill: '#EFEDEA', vizinhoStroke: '#B9B6B1',
+  contextoFill: '#F0EFED', contextoStroke: '#ADAAA5',
+  limiteEstadual: '#55524E', limiteNacional: '#2C2C2B',
+  graticula: '#C9C6C2', moldura: '#2C2C2B', caixaFundo: '#F9F8F7', borda: '#E6E5E3',
+  manchaUrbana: '#E67E22',
+  rio: '#3498DB',
+};
+
+const app = { ufs: [], municipios: [], dados: null, gerado: false };
+const cacheRequisicoes = new Map();
+
+function buscarJson(url) {
+  if (cacheRequisicoes.has(url)) return cacheRequisicoes.get(url);
+  const promessa = fetch(url, { headers: { Accept: 'application/vnd.geo+json, application/json;q=0.9' } })
+    .then((resposta) => {
+      if (!resposta.ok) throw new Error(`Servidor do IBGE respondeu com HTTP ${resposta.status}.`);
+      return resposta.json();
+    })
+    .catch((erro) => {
+      cacheRequisicoes.delete(url);
+      throw erro;
+    });
+  cacheRequisicoes.set(url, promessa);
+  return promessa;
+}
+
+function localizarFeicaoMunicipio(malhaMunicipios, idMunicipio) {
+  const id = String(idMunicipio);
+  const feicoes = malhaMunicipios && malhaMunicipios.features ? malhaMunicipios.features : [];
+  return (
+    feicoes.find((f) => String(f.properties && f.properties.codarea) === id) ||
+    feicoes.find((f) => String(f.properties && f.properties.codarea).slice(0, 6) === id.slice(0, 6)) ||
+    null
+  );
+}
+
+function percorrerCoordenadas(objeto, fn) {
+  if (!objeto) return;
+  if (objeto.type === 'FeatureCollection') objeto.features.forEach((f) => percorrerCoordenadas(f, fn));
+  else if (objeto.type === 'Feature') percorrerCoordenadas(objeto.geometry, fn);
+  else if (objeto.type === 'GeometryCollection') objeto.geometries.forEach((g) => percorrerCoordenadas(g, fn));
+  else {
+    const profundidade = { Point: 0, MultiPoint: 1, LineString: 1, MultiLineString: 2, Polygon: 2, MultiPolygon: 3 }[objeto.type];
+    if (profundidade === undefined) return;
+    const desce = (arr, n) => (n === 0 ? fn(arr) : arr.forEach((a) => desce(a, n - 1)));
+    desce(objeto.coordinates, profundidade);
+  }
+}
+
+function calcularBBox(geo) {
+  const b = [Infinity, Infinity, -Infinity, -Infinity];
+  percorrerCoordenadas(geo, (p) => {
+    if (p[0] < b[0]) b[0] = p[0];
+    if (p[1] < b[1]) b[1] = p[1];
+    if (p[0] > b[2]) b[2] = p[0];
+    if (p[1] > b[3]) b[3] = p[1];
+  });
+  return b;
+}
+
+function criarProjecao(bbox, x, y, w, h, margem, paraleloPadrao) {
+  const [lon1, lat1, lon2, lat2] = bbox;
+  const lam0 = (lon1 + lon2) / 2;
+  const phi0 = (lat1 + lat2) / 2;
+  const phiRef = paraleloPadrao !== undefined ? paraleloPadrao : phi0;
+  const k = Math.cos((phiRef * Math.PI) / 180);
+  const dLon = Math.max(lon2 - lon1, 1e-9) * k;
+  const dLat = Math.max(lat2 - lat1, 1e-9);
+  const S = Math.min((w * (1 - 2 * margem)) / dLon, (h * (1 - 2 * margem)) / dLat);
+  return {
+    S, k, lam0, phi0,
+    kmPorPx: 111.32 / S,
+    proj: ([lon, lat]) => [x + w / 2 + (lon - lam0) * k * S, y + h / 2 + (phi0 - lat) * S],
+    inv: ([px, py]) => [lam0 + (px - x - w / 2) / (k * S), phi0 - (py - y - h / 2) / S],
+  };
+}
+
+function caminhoSVG(geo, proj) {
+  let d = '';
+  const anel = (pontos) => {
+    for (let i = 0; i < pontos.length; i++) {
+      const [px, py] = proj(pontos[i]);
+      d += (i === 0 ? 'M' : 'L') + px.toFixed(2) + ' ' + py.toFixed(2);
+    }
+    d += 'Z';
+  };
+  const geometria = (g) => {
+    if (!g) return;
+    if (g.type === 'Polygon') g.coordinates.forEach(anel);
+    else if (g.type === 'MultiPolygon') g.coordinates.forEach((poligono) => poligono.forEach(anel));
+    else if (g.type === 'GeometryCollection') g.geometries.forEach(geometria);
+  };
+  if (geo.type === 'FeatureCollection') geo.features.forEach((f) => geometria(f.geometry));
+  else if (geo.type === 'Feature') geometria(geo.geometry);
+  else geometria(geo);
+  return d;
+}
+
+function caminhoLinhaSVG(geo, proj) {
+  let d = '';
+  const linha = (pontos) => {
+    for (let i = 0; i < pontos.length; i++) {
+      const [px, py] = proj(pontos[i]);
+      d += (i === 0 ? 'M' : 'L') + px.toFixed(2) + ' ' + py.toFixed(2);
+    }
+  };
+  const geometria = (g) => {
+    if (!g) return;
+    if (g.type === 'LineString') linha(g.coordinates);
+    else if (g.type === 'MultiLineString') g.coordinates.forEach(linha);
+    else if (g.type === 'GeometryCollection') g.geometries.forEach(geometria);
+  };
+  if (geo.type === 'FeatureCollection') geo.features.forEach((f) => geometria(f.geometry));
+  else if (geo.type === 'Feature') geometria(geo.geometry);
+  else geometria(geo);
+  return d;
+}
+
+function pontoNoMunicipio(ponto, feicao) {
+  if (!feicao || !feicao.geometry) return false;
+  const geom = feicao.geometry;
+  const [x, y] = ponto;
+  const testeAnel = (anel) => {
+    let dentro = false;
+    for (let i = 0, j = anel.length - 1; i < anel.length; j = i++) {
+      const xi = anel[i][0], yi = anel[i][1];
+      const xj = anel[j][0], yj = anel[j][1];
+      const intersecta = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+      if (intersecta) dentro = !dentro;
+    }
+    return dentro;
+  };
+  if (geom.type === 'Polygon') {
+    return testeAnel(geom.coordinates[0]);
+  } else if (geom.type === 'MultiPolygon') {
+    return geom.coordinates.some((poligono) => testeAnel(poligono[0]));
+  }
+  return false;
+}
+
+function encontrarPosicaoRotuloRodovia(feature, lonMin, latMin, lonMax, latMax, proj, boxesColisao, w_shield, h_shield, feicaoMunicipio) {
+  const pontosVisiveis = [];
+  percorrerCoordenadas(feature, (p) => {
+    const lon = p[0], lat = p[1];
+    if (lon >= lonMin && lon <= lonMax && lat >= latMin && lat <= latMax) {
+      if (pontoNoMunicipio(p, feicaoMunicipio)) {
+        pontosVisiveis.push(p);
+      }
+    }
+  });
+  if (pontosVisiveis.length === 0) return null;
+  const len = pontosVisiveis.length;
+  const indices = [Math.floor(len / 2), Math.floor(len / 4), Math.floor(3 * len / 4)];
+  for (const idx of indices) {
+    if (idx < 0 || idx >= len) continue;
+    const [lon, lat] = pontosVisiveis[idx];
+    const [cx, cy] = proj([lon, lat]);
+    const box = { left: cx - w_shield / 2 - 10, right: cx + w_shield / 2 + 10, top: cy - h_shield / 2 - 8, bottom: cy + h_shield / 2 + 8 };
+    const collide = boxesColisao.some((b) => !(box.right < b.left || box.left > b.right || box.bottom < b.top || box.top > b.bottom));
+    if (!collide) return { pos: [cx, cy], box };
+  }
+  return null;
+}
+
+function encontrarPosicaoRotuloRio(feature, lonMin, latMin, lonMax, latMax, proj, boxesColisao, w_text, h_text, feicaoMunicipio) {
+  const pontosVisiveis = [];
+  percorrerCoordenadas(feature, (p) => {
+    const lon = p[0], lat = p[1];
+    if (lon >= lonMin && lon <= lonMax && lat >= latMin && lat <= latMax) {
+      if (pontoNoMunicipio(p, feicaoMunicipio)) {
+        pontosVisiveis.push(p);
+      }
+    }
+  });
+  if (pontosVisiveis.length === 0) return null;
+  const len = pontosVisiveis.length;
+  const indices = [Math.floor(len / 2), Math.floor(len / 4), Math.floor(3 * len / 4)];
+  for (const idx of indices) {
+    if (idx < 0 || idx >= len) continue;
+    const [lon, lat] = pontosVisiveis[idx];
+    const [cx, cy] = proj([lon, lat]);
+    const box = { left: cx - w_text / 2 - 8, right: cx + w_text / 2 + 8, top: cy - h_text / 2 - 6, bottom: cy + h_text / 2 + 6 };
+    const collide = boxesColisao.some((b) => !(box.right < b.left || box.left > b.right || box.bottom < b.top || box.top > b.bottom));
+    if (!collide) return { pos: [cx, cy], box };
+  }
+  return null;
+}
+
+function passoGraticula(amplitudeGraus) {
+  const alvo = amplitudeGraus / 4;
+  const passos = [0.01, 0.02, 0.05, 0.1, 0.2, 0.25, 0.5, 1, 2, 2.5, 5, 10, 15, 20];
+  return passos.find((p) => p >= alvo) || 30;
+}
+
+function formatarGrau(valor, eixo) {
+  const negativo = valor < 0;
+  const totalSegundos = Math.round(Math.abs(valor) * 3600);
+  const graus = Math.floor(totalSegundos / 3600);
+  const minutos = Math.floor((totalSegundos % 3600) / 60);
+  const segundos = totalSegundos % 60;
+  const hemisferio = eixo === 'lon' ? (negativo ? 'W' : 'E') : (negativo ? 'S' : 'N');
+  const base = `${graus}°${String(minutos).padStart(2, '0')}'`;
+  return (segundos ? base + String(segundos).padStart(2, '0') + '"' : base) + hemisferio;
+}
+
+function arredondarBonito(valor) {
+  const potencia = Math.pow(10, Math.floor(Math.log10(valor)));
+  const mantissa = valor / potencia;
+  const nice = mantissa < 1.5 ? 1 : mantissa < 2.25 ? 2 : mantissa < 3.5 ? 2.5 : mantissa < 7.5 ? 5 : 10;
+  return nice * potencia;
+}
+
+function esc(texto) {
+  return String(texto).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function formatarMilhar(n) { return Math.round(n).toLocaleString('pt-BR'); }
+
+const SERIF = "Georgia, 'Times New Roman', serif";
+
+function svgMapaPrincipal(o) {
+  const { x, y, w, h, cor, mostrarGraticula, mostrarVizinhos, mostrarMancha, mostrarRodovias, mostrarRios, dados } = o;
+  const bboxMun = calcularBBox(dados.feicaoMunicipio);
+  const pr = criarProjecao(bboxMun, x, y, w, h, 0.18);
+  let s = '';
+  s += `<clipPath id="clipPrincipal"><rect x="${x}" y="${y}" width="${w}" height="${h}"/></clipPath>`;
+  s += `<clipPath id="clipMunicipio"><path d="${caminhoSVG(dados.feicaoMunicipio, pr.proj)}"/></clipPath>`;
+  s += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#FDFDFC"/>`;
+  s += `<g clip-path="url(#clipPrincipal)">`;
+  if (mostrarVizinhos) {
+    s += `<path d="${caminhoSVG(dados.malhaMunicipios, pr.proj)}" fill="${CORES.vizinhoFill}" stroke="${CORES.vizinhoStroke}" stroke-width="0.7"/>`;
+  }
+  s += `<path d="${caminhoSVG(dados.malhaEstado, pr.proj)}" fill="${mostrarVizinhos ? 'none' : CORES.vizinhoFill}" stroke="${CORES.limiteEstadual}" stroke-width="1.4"/>`;
+  s += `<path d="${caminhoSVG(dados.feicaoMunicipio, pr.proj)}" fill="${cor}" fill-opacity="0.92" stroke="#2C2C2B" stroke-width="1.1"/>`;
+  if (mostrarMancha && dados.malhaSetores && dados.malhaSetores.features) {
+    const setoresUrbanos = dados.malhaSetores.features.filter((f) => f.properties && (f.properties.situacao === 'Urbana' || ['1', '2', '3'].includes(String(f.properties.cd_sit))));
+    let dSetores = '';
+    setoresUrbanos.forEach((f) => { dSetores += caminhoSVG(f, pr.proj); });
+    if (dSetores) s += `<path d="${dSetores}" fill="${CORES.manchaUrbana}" fill-opacity="0.45" stroke="none"/>`;
+  }
+  if (mostrarRios && dados.malhaRios && dados.malhaRios.features) {
+    let dRios = '';
+    dados.malhaRios.features.forEach((f) => { dRios += caminhoLinhaSVG(f, pr.proj); });
+    if (dRios) {
+      s += `<g clip-path="url(#clipMunicipio)">`;
+      s += `<path d="${dRios}" fill="none" stroke="${CORES.rio}" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>`;
+      s += `</g>`;
+    }
+  }
+  if (mostrarRodovias && dados.malhaRodovias && dados.malhaRodovias.features) {
+    let dBRBase = '', dBRTop = '', dRJBase = '', dRJTop = '';
+    dados.malhaRodovias.features.forEach((f) => {
+      const sigla = (f.properties.sigla || '').trim();
+      const ehFederal = sigla.startsWith('BR-');
+      const dPath = caminhoLinhaSVG(f, pr.proj);
+      if (ehFederal) {
+        dBRBase += dPath;
+        dBRTop += dPath;
+      } else {
+        dRJBase += dPath;
+        dRJTop += dPath;
+      }
+    });
+    s += `<g clip-path="url(#clipMunicipio)">`;
+    if (dRJBase) {
+      s += `<path d="${dRJBase}" fill="none" stroke="#55524E" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`;
+      s += `<path d="${dRJTop}" fill="none" stroke="#F1C40F" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>`;
+    }
+    if (dBRBase) {
+      s += `<path d="${dBRBase}" fill="none" stroke="#2C2C2B" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>`;
+      s += `<path d="${dBRTop}" fill="none" stroke="#F39C12" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>`;
+    }
+    s += `</g>`;
+  }
+  const [lonMin, latMin] = pr.inv([x, y + h]);
+  const [lonMax, latMax] = pr.inv([x + w, y]);
+  const passo = passoGraticula(Math.max(lonMax - lonMin, latMax - latMin));
+  let rotulos = '';
+  if (mostrarGraticula) {
+    s += `<g stroke="${CORES.graticula}" stroke-width="0.6" stroke-dasharray="1 3">`;
+    for (let lon = Math.ceil(lonMin / passo) * passo; lon <= lonMax + 1e-9; lon += passo) {
+      const px = pr.proj([lon, pr.phi0])[0];
+      s += `<line x1="${px.toFixed(2)}" y1="${y}" x2="${px.toFixed(2)}" y2="${y + h}"/>`;
+      rotulos += `<text x="${px.toFixed(2)}" y="${y + h + 14}" text-anchor="middle" font-family="${SERIF}" font-size="9.5" fill="${CORES.texto2}">${formatarGrau(lon, 'lon')}</text>`;
+    }
+    for (let lat = Math.ceil(latMin / passo) * passo; lat <= latMax + 1e-9; lat += passo) {
+      const py = pr.proj([pr.lam0, lat])[1];
+      s += `<line x1="${x}" y1="${py.toFixed(2)}" x2="${x + w}" y2="${py.toFixed(2)}"/>`;
+      rotulos += `<text x="${x - 10}" y="${py.toFixed(2)}" transform="rotate(-90, ${x - 10}, ${py.toFixed(2)})" text-anchor="middle" font-family="${SERIF}" font-size="9.5" fill="${CORES.texto2}">${formatarGrau(lat, 'lat')}</text>`;
+    }
+    s += `</g>`;
+  }
+  s += `</g>`;
+  s += rotulos;
+  s += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="none" stroke="${CORES.moldura}" stroke-width="1.2"/>`;
+  const [cxm, cym] = pr.proj([(bboxMun[0] + bboxMun[2]) / 2, (bboxMun[1] + bboxMun[3]) / 2]);
+  const w_main = o.nomeMunicipio.length * 8 + 30;
+  const h_main = 28;
+  const boxesColisao = [{ left: cxm - w_main / 2, right: cxm + w_main / 2, top: cym - h_main / 2, bottom: cym + h_main / 2 }];
+  let rotulosVizinhos = '';
+  if (mostrarVizinhos) {
+    const nomesMunicipios = new Map();
+    app.municipios.forEach((m) => {
+      const idStr = String(m.id);
+      nomesMunicipios.set(idStr, m.nome);
+      if (idStr.length === 7) nomesMunicipios.set(idStr.slice(0, 6), m.nome);
+    });
+    const coordsSet = new Set();
+    percorrerCoordenadas(dados.feicaoMunicipio, (p) => { coordsSet.add(`${p[0].toFixed(6)},${p[1].toFixed(6)}`); });
+    const idSelecionado = String(dados.feicaoMunicipio.properties && dados.feicaoMunicipio.properties.codarea);
+    const feicoes = dados.malhaMunicipios && dados.malhaMunicipios.features ? dados.malhaMunicipios.features : [];
+    for (const f of feicoes) {
+      const id = String(f.properties && f.properties.codarea);
+      if (id === idSelecionado) continue;
+      let eNeigh = false;
+      percorrerCoordenadas(f, (p) => {
+        if (eNeigh) return;
+        if (coordsSet.has(`${p[0].toFixed(6)},${p[1].toFixed(6)}`)) eNeigh = true;
+      });
+      if (eNeigh) {
+        const nome = nomesMunicipios.get(id) || nomesMunicipios.get(id.slice(0, 6)) || '';
+        if (nome && nome !== o.nomeMunicipio) {
+          let minPx = Infinity, minPy = Infinity, maxPx = -Infinity, maxPy = -Infinity, sumX = 0, sumY = 0, count = 0;
+          percorrerCoordenadas(f, (p) => {
+            const lon = p[0], lat = p[1];
+            if (lon >= lonMin && lon <= lonMax && lat >= latMin && lat <= latMax) {
+              const [px, py] = pr.proj(p);
+              if (px < minPx) minPx = px;
+              if (py < minPy) minPy = py;
+              if (px > maxPx) maxPx = px;
+              if (py > maxPy) maxPy = py;
+              sumX += px;
+              sumY += py;
+              count++;
+            }
+          });
+          if (count > 0) {
+            const avgPx = sumX / count;
+            const avgPy = sumY / count;
+            const bboxF = calcularBBox(f);
+            const trueCenter = [(bboxF[0] + bboxF[2]) / 2, (bboxF[1] + bboxF[3]) / 2];
+            const [truePx, truePy] = pr.proj(trueCenter);
+            const dx = truePx - cxm, dy = truePy - cym;
+            let cx, cy;
+            if (Math.abs(dx) > Math.abs(dy)) {
+              cy = avgPy;
+              cx = dx > 0 ? (avgPx + maxPx) / 2 : (minPx + avgPx) / 2;
+            } else {
+              cx = avgPx;
+              cy = dy > 0 ? (avgPy + maxPy) / 2 : (minPy + avgPy) / 2;
+            }
+            const candidatos = [[0, 0], [0, -14], [0, 14], [-30, 0], [30, 0], [-20, -12], [20, -12], [-20, 12], [20, 12]];
+            const w_neigh = nome.length * 6.0 + 16;
+            const h_neigh = 16;
+            let bestPos = null, bestBox = null;
+            for (const [ox, oy] of candidatos) {
+              const ccx = cx + ox, ccy = cy + oy;
+              const boxNeigh = { left: ccx - w_neigh / 2, right: ccx + w_neigh / 2, top: ccy - h_neigh / 2, bottom: ccy + h_neigh / 2 };
+              if (boxNeigh.left >= x + 19 && boxNeigh.right <= x + w - 19 && boxNeigh.top >= y + 19 && boxNeigh.bottom <= y + h - 19) {
+                const collide = boxesColisao.some((b) => !(boxNeigh.right < b.left || boxNeigh.left > b.right || boxNeigh.bottom < b.top || boxNeigh.top > b.bottom));
+                if (!collide) {
+                  bestPos = [ccx, ccy];
+                  bestBox = boxNeigh;
+                  break;
+                } else if (!bestPos) {
+                  bestPos = [ccx, ccy];
+                  bestBox = boxNeigh;
+                }
+              }
+            }
+            if (!bestPos) {
+              const clampX = Math.max(x + 19 + w_neigh / 2, Math.min(x + w - 19 - w_neigh / 2, cx));
+              const clampY = Math.max(y + 19 + h_neigh / 2, Math.min(y + h - 19 - h_neigh / 2, cy));
+              bestPos = [clampX, clampY];
+              bestBox = { left: clampX - w_neigh / 2, right: clampX + w_neigh / 2, top: clampY - h_neigh / 2, bottom: clampY + h_neigh / 2 };
+            }
+            if (bestPos) {
+              boxesColisao.push(bestBox);
+              rotulosVizinhos += `<text x="${bestPos[0].toFixed(1)}" y="${bestPos[1].toFixed(1)}" text-anchor="middle" font-family="${SERIF}" font-size="9.5" font-style="italic" fill="${CORES.texto2}" stroke="#FFFFFF" stroke-width="2.5" paint-order="stroke" stroke-linejoin="round">${esc(nome)}</text>`;
+            }
+          }
+        }
+      }
+    }
+  }
+  let rotulosRodovias = '';
+  if (mostrarRodovias && dados.malhaRodovias && dados.malhaRodovias.features) {
+    const siglasPlacadas = [];
+    dados.malhaRodovias.features.forEach((f) => {
+      const sigla = (f.properties.sigla || '').trim();
+      if (!sigla) return;
+      const ehFederal = sigla.startsWith('BR-');
+      const w_s = sigla.length > 5 ? 32 : 26;
+      const h_s = 13;
+      const resultadoRotulo = encontrarPosicaoRotuloRodovia(f, lonMin, latMin, lonMax, latMax, pr.proj, boxesColisao, w_s, h_s, dados.feicaoMunicipio);
+      if (resultadoRotulo) {
+        const [cx, cy] = resultadoRotulo.pos;
+        const proximo = siglasPlacadas.some((s) => s.sigla === sigla && Math.hypot(s.x - cx, s.y - cy) < 120);
+        if (!proximo) {
+          siglasPlacadas.push({ sigla, x: cx, y: cy });
+          boxesColisao.push(resultadoRotulo.box);
+          const fill = ehFederal ? '#1B4F72' : '#2E4053';
+          rotulosRodovias += `<g>`;
+          rotulosRodovias += `<rect x="${cx - w_s / 2}" y="${cy - h_s / 2}" width="${w_s}" height="${h_s}" rx="3" fill="${fill}" stroke="#FFFFFF" stroke-width="0.8"/>`;
+          rotulosRodovias += `<text x="${cx}" y="${cy + 3.0}" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif" font-size="7.5" font-weight="bold" fill="#FFFFFF">${sigla}</text>`;
+          rotulosRodovias += `</g>`;
+        }
+      }
+    });
+  }
+  let rotulosRios = '';
+  if (mostrarRios && dados.malhaRios && dados.malhaRios.features) {
+    const nomesRiosPlacados = [];
+    dados.malhaRios.features.forEach((f) => {
+      const nome = (f.properties.nome || '').trim();
+      if (!nome) return;
+      const w_t = nome.length * 5.0 + 8;
+      const h_t = 10;
+      const resultadoRotulo = encontrarPosicaoRotuloRio(f, lonMin, latMin, lonMax, latMax, pr.proj, boxesColisao, w_t, h_t, dados.feicaoMunicipio);
+      if (resultadoRotulo) {
+        const [cx, cy] = resultadoRotulo.pos;
+        const proximo = nomesRiosPlacados.some((r) => r.nome === nome && Math.hypot(r.x - cx, r.y - cy) < 120);
+        if (!proximo) {
+          nomesRiosPlacados.push({ nome, x: cx, y: cy });
+          boxesColisao.push(resultadoRotulo.box);
+          rotulosRios += `<text x="${cx}" y="${cy + 3.0}" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif" font-size="8" font-style="italic" fill="${CORES.rio}" stroke="#FFFFFF" stroke-width="2.2" paint-order="stroke" stroke-linejoin="round">${esc(nome)}</text>`;
+        }
+      }
+    });
+  }
+  s += rotulosVizinhos;
+  s += rotulosRios;
+  s += rotulosRodovias;
+  s += `<text x="${cxm.toFixed(1)}" y="${cym.toFixed(1)}" text-anchor="middle" font-family="${SERIF}" font-size="12" font-weight="bold" fill="#2C2C2B" stroke="#FFFFFF" stroke-width="3" paint-order="stroke" stroke-linejoin="round">${esc(o.nomeMunicipio)}</text>`;
+  s += svgSetaNorte(x + w - 38, y + 44);
+  s += svgBarraEscala(x + 16, y + h - 54, pr.kmPorPx);
+  return { svg: s, kmPorPx: pr.kmPorPx, extensao: { lonMin, latMin, lonMax, latMax } };
+}
+
+function svgSetaNorte(cx, cy) {
+  return `<g>
+    <circle cx="${cx}" cy="${cy}" r="26" fill="#FFFFFF" fill-opacity="0.88" stroke="${CORES.borda}"/>
+    <text x="${cx}" y="${cy - 10}" text-anchor="middle" font-family="${SERIF}" font-size="12" font-weight="bold" fill="${CORES.texto}">N</text>
+    <path d="M ${cx} ${cy - 6} L ${cx + 8} ${cy + 18} L ${cx} ${cy + 11} Z" fill="${CORES.texto}"/>
+    <path d="M ${cx} ${cy - 6} L ${cx - 8} ${cy + 18} L ${cx} ${cy + 11} Z" fill="#FFFFFF" stroke="${CORES.texto}" stroke-width="0.9"/>
+  </g>`;
+}
+
+function svgBarraEscala(x, y, kmPorPx) {
+  const kmTotal = arredondarBonito(150 * kmPorPx);
+  const larguraPx = kmTotal / kmPorPx;
+  const seg = larguraPx / 4;
+  const altura = 7;
+  let s = `<g>
+    <rect x="${x - 10}" y="${y - 20}" width="${larguraPx + 44}" height="34" rx="4" fill="#FFFFFF" fill-opacity="0.88" stroke="${CORES.borda}"/>`;
+  for (let i = 0; i < 4; i++) {
+    s += `<rect x="${(x + i * seg).toFixed(2)}" y="${y}" width="${seg.toFixed(2)}" height="${altura}" fill="${i % 2 === 0 ? CORES.texto : '#FFFFFF'}" stroke="${CORES.texto}" stroke-width="0.8"/>`;
+  }
+  const rotulo = (valor, px) => `<text x="${px.toFixed(2)}" y="${y - 5}" text-anchor="middle" font-family="${SERIF}" font-size="9.5" fill="${CORES.texto2}">${valor}</text>`;
+  const fmtKm = (v) => v.toLocaleString('pt-BR', { maximumFractionDigits: 3 });
+  s += rotulo(0, x) + rotulo(fmtKm(kmTotal / 2), x + larguraPx / 2) + rotulo(fmtKm(kmTotal), x + larguraPx);
+  s += `<text x="${(x + larguraPx + 8).toFixed(2)}" y="${y + altura}" font-family="${SERIF}" font-size="10" fill="${CORES.texto2}">km</text>`;
+  s += `</g>`;
+  return s;
+}
+
+function svgInsetBrasil(o) {
+  const { x, y, w, h, cor, dados, siglaUF, idUF } = o;
+  const bbox = calcularBBox(dados.malhaBrasil);
+  const pr = criarProjecao(bbox, x, y, w, h, 0.08);
+  const feicaoUF = (dados.malhaBrasilUFs.features || []).find((f) => String(f.properties && f.properties.codarea) === String(idUF));
+  let s = `<clipPath id="clipBrasil"><rect x="${x}" y="${y}" width="${w}" height="${h}"/></clipPath>`;
+  s += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#FDFDFC"/>`;
+  s += `<g clip-path="url(#clipBrasil)">`;
+  s += `<path d="${caminhoSVG(dados.malhaBrasilUFs, pr.proj)}" fill="${CORES.contextoFill}" stroke="${CORES.contextoStroke}" stroke-width="0.5"/>`;
+  if (feicaoUF) s += `<path d="${caminhoSVG(feicaoUF, pr.proj)}" fill="${cor}" fill-opacity="0.92" stroke="#2C2C2B" stroke-width="0.8"/>`;
+  s += `<path d="${caminhoSVG(dados.malhaBrasil, pr.proj)}" fill="none" stroke="${CORES.limiteNacional}" stroke-width="1.1"/>`;
+  s += `</g><rect x="${x}" y="${y}" width="${w}" height="${h}" fill="none" stroke="${CORES.moldura}" stroke-width="1"/>`;
+  s += `<text x="${x + w / 2}" y="${y + h + 16}" text-anchor="middle" font-family="${SERIF}" font-size="11" font-style="italic" fill="${CORES.texto2}">Localização de ${esc(siglaUF)} no Brasil</text>`;
+  return s;
+}
+
+function svgInsetEstado(o) {
+  const { x, y, w, h, cor, dados, nomeUF, extensao } = o;
+  const bbox = calcularBBox(dados.malhaEstado);
+  const bboxBrasil = calcularBBox(dados.malhaBrasil);
+  const pr = criarProjecao(bbox, x, y, w, h, 0.08, (bboxBrasil[1] + bboxBrasil[3]) / 2);
+  let s = `<clipPath id="clipEstado"><rect x="${x}" y="${y}" width="${w}" height="${h}"/></clipPath>`;
+  s += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#FDFDFC"/>`;
+  s += `<g clip-path="url(#clipEstado)">`;
+  s += `<path d="${caminhoSVG(dados.malhaMunicipios, pr.proj)}" fill="${CORES.contextoFill}" stroke="${CORES.contextoStroke}" stroke-width="0.25"/>`;
+  s += `<path d="${caminhoSVG(dados.malhaEstado, pr.proj)}" fill="none" stroke="${CORES.limiteEstadual}" stroke-width="1.1"/>`;
+  const bboxMun = calcularBBox(dados.feicaoMunicipio);
+  const p1 = pr.proj([bboxMun[0], bboxMun[3]]);
+  const p2 = pr.proj([bboxMun[2], bboxMun[1]]);
+  s += `<path d="${caminhoSVG(dados.feicaoMunicipio, pr.proj)}" fill="${cor}" stroke="#2C2C2B" stroke-width="0.6"/>`;
+  if (Math.max(p2[0] - p1[0], p2[1] - p1[1]) < 7) {
+    const [mcx, mcy] = pr.proj([(bboxMun[0] + bboxMun[2]) / 2, (bboxMun[1] + bboxMun[3]) / 2]);
+    s += `<circle cx="${mcx.toFixed(1)}" cy="${mcy.toFixed(1)}" r="6" fill="none" stroke="${cor}" stroke-width="1.6"/>`;
+  }
+  if (extensao) {
+    const e1 = pr.proj([extensao.lonMin, extensao.latMax]);
+    const e2 = pr.proj([extensao.lonMax, extensao.latMin]);
+    s += `<rect x="${e1[0].toFixed(1)}" y="${e1[1].toFixed(1)}" width="${(e2[0] - e1[0]).toFixed(1)}" height="${(e2[1] - e1[1]).toFixed(1)}" fill="none" stroke="#2C2C2B" stroke-width="0.9" stroke-dasharray="3 2"/>`;
+  }
+  s += `</g><rect x="${x}" y="${y}" width="${w}" height="${h}" fill="none" stroke="${CORES.moldura}" stroke-width="1"/>`;
+  s += `<text x="${x + w / 2}" y="${y + h + 16}" text-anchor="middle" font-family="${SERIF}" font-size="11" font-style="italic" fill="${CORES.texto2}">Localização do município em ${esc(nomeUF)}</text>`;
+  return s;
+}
+
+function svgLegenda(o) {
+  const { x, y, w, h, cor, nomeMunicipio, mostrarVizinhos, mostrarMancha, mostrarRodovias, mostrarRios } = o;
+  let s = `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${CORES.caixaFundo}" stroke="${CORES.moldura}" stroke-width="1.2"/>`;
+  const fTitle = Math.round(10 + w * 0.01);
+  const fText = Math.round(8.5 + w * 0.008);
+  s += `<text x="${x + 12}" y="${y + 24}" font-family="${SERIF}" font-size="${fTitle}" font-weight="bold" letter-spacing="0.5" fill="${CORES.texto}">LEGENDA</text>`;
+  const itens = [
+    { tipo: 'area', fill: cor, stroke: '#2C2C2B', rotulo: `Município de ${nomeMunicipio}` },
+    ...(mostrarMancha ? [{ tipo: 'area', fill: CORES.manchaUrbana, stroke: 'none', rotulo: 'Mancha urbana (Censo)' }] : []),
+    ...(mostrarRodovias ? [{ tipo: 'linha', stroke: '#F39C12', largura: 2.2, rotulo: 'Rodovias principais' }] : []),
+    ...(mostrarRios ? [{ tipo: 'linha', stroke: CORES.rio, largura: 1.6, rotulo: 'Cursos d\'água' }] : []),
+    ...(mostrarVizinhos ? [{ tipo: 'area', fill: CORES.vizinhoFill, stroke: CORES.vizinhoStroke, rotulo: 'Municípios limítrofes' }] : []),
+    { tipo: 'linha', stroke: CORES.limiteEstadual, largura: 1.6, rotulo: 'Limite estadual' },
+    { tipo: 'linha', stroke: CORES.limiteNacional, largura: 2.2, rotulo: 'Limite nacional' },
+  ];
+  const margemY = 36;
+  const espacoY = h - margemY - 10;
+  const passoY = espacoY / itens.length;
+  itens.forEach((item, i) => {
+    const yy = y + margemY + i * passoY + passoY / 2;
+    const swatchW = Math.round(w * 0.085);
+    const swatchH = Math.round(swatchW * 0.5);
+    if (item.tipo === 'area') {
+      s += `<rect x="${x + 12}" y="${yy - swatchH / 2}" width="${swatchW}" height="${swatchH}" fill="${item.fill}" stroke="${item.stroke}" stroke-width="0.9"/>`;
+    } else {
+      s += `<line x1="${x + 12}" y1="${yy}" x2="${x + 12 + swatchW}" y2="${yy}" stroke="${item.stroke}" stroke-width="${item.largura}"/>`;
+    }
+    s += `<text x="${x + 12 + swatchW + 10}" y="${yy + 4}" font-family="${SERIF}" font-size="${fText}" fill="${CORES.texto2}">${esc(item.rotulo)}</text>`;
+  });
+  return s;
+}
+
+function svgMetadados(o) {
+  const { x, y, w, h, autor, kmPorPx } = o;
+  const denominador = arredondarBonito(kmPorPx * 100000 / (2.54 / 96));
+  const dataHoje = new Date().toLocaleDateString('pt-BR');
+  const linhas = [
+    'Ref. Espacial: SIRGAS 2000 (EPSG:4674)',
+    `Fonte: IBGE — Malhas Territoriais, ${new Date().getFullYear()}`,
+    `Elaboração: ${autor || '—'}`,
+    `Data: ${dataHoje}  ·  Escala aprox.: 1:${formatarMilhar(denominador)}`,
+  ];
+  let s = `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${CORES.caixaFundo}" stroke="${CORES.moldura}" stroke-width="1.2"/>`;
+  const fTitle = Math.round(10 + w * 0.01);
+  const fText = Math.round(7.5 + w * 0.007);
+  s += `<text x="${x + 12}" y="${y + 24}" font-family="${SERIF}" font-size="${fTitle}" font-weight="bold" letter-spacing="0.5" fill="${CORES.texto}">INFORMAÇÕES CARTOGRÁFICAS</text>`;
+  const margemY = 36;
+  const espacoY = h - margemY - 10;
+  const passoY = espacoY / linhas.length;
+  linhas.forEach((linha, i) => {
+    const yy = y + margemY + i * passoY + passoY / 2;
+    s += `<text x="${x + 12}" y="${yy + 4}" font-family="${SERIF}" font-size="${fText}" fill="${CORES.texto2}">${esc(linha)}</text>`;
+  });
+  return s;
+}
+
+function renderizarIndicadores() {
+  const d = app.dados;
+  if (!d) return;
+  document.getElementById('info-container').style.display = 'flex';
+  const mapUnidades = { '29171': 'pessoas', '29765': 'salários mínimos', '60030': '%', '47001': 'R$', '30279': 'óbitos por mil', '29167': 'km²' };
+  const extraidos = {};
+  const anosExtraidos = {};
+  if (d.indicadoresIBGE && d.indicadoresIBGE.length) {
+    d.indicadoresIBGE.forEach(ind => {
+      if (ind.res && ind.res.length > 0) {
+        const valoresPorAno = ind.res[0].res;
+        const anos = Object.keys(valoresPorAno).sort((a, b) => b - a);
+        if (anos.length > 0) {
+          extraidos[ind.id] = valoresPorAno[anos[0]];
+          anosExtraidos[ind.id] = anos[0];
+        }
+      }
+    });
+  }
+
+  // Extrai data de aniversário
+  let aniversario = 'N/A';
+  if (d.municipioInfo && d.municipioInfo.dataInstalacao) {
+    const data = new Date(d.municipioInfo.dataInstalacao + 'T00:00:00');
+    if (!isNaN(data.getTime())) {
+      const dia = String(data.getDate()).padStart(2, '0');
+      const mes = String(data.getMonth() + 1).padStart(2, '0');
+      const ano = data.getFullYear();
+      aniversario = `${dia}/${mes}/${ano}`;
+    }
+  }
+
+  let html = '';
+  const list = [
+    { id: '29171', label: '1 - População Estimada' },
+    { tipo: 'custom', id: 'aniversario', label: '2 - Aniversário da cidade', valor: aniversario },
+    { id: '29765', label: '3 - Salário médio mensal' },
+    { id: '60030', label: '4 - Escolarização (6 a 14 anos)' },
+    { id: '47001', label: '5 - PIB per capita' },
+    { id: '30279', label: '6 - Mortalidade infantil' },
+    { id: '29167', label: '7 - Área territorial' }
+  ];
+  let contador = 0;
+  list.forEach(item => {
+    let val = 'N/A';
+    let ano = '';
+    let mostrar = true;
+
+    if (item.tipo === 'custom') {
+      val = item.valor;
+      // Oculta aniversário se for N/A
+      if (val === 'N/A') mostrar = false;
+    } else {
+      val = extraidos[item.id] || 'N/A';
+      ano = anosExtraidos[item.id] || '';
+      if (val !== 'N/A') {
+        const num = Number(val);
+        if (!isNaN(num)) val = num.toLocaleString('pt-BR');
+        if (mapUnidades[item.id]) val += ' ' + mapUnidades[item.id];
+        if (ano && item.id === '29171') val += ` (${ano})`;
+      }
+    }
+
+    if (mostrar) {
+      contador++;
+      let label = item.label;
+      // Renumera os labels se aniversário for oculto
+      if (item.tipo === 'custom') {
+        label = `${contador} - Aniversário da cidade`;
+      } else {
+        label = item.label.replace(/^\d+/, contador);
+      }
+
+      html += `<div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--borda); padding-bottom: 4px;">
+               <span style="font-weight: 600;">${label}:</span>
+               <span style="text-align: right; font-size: 11px;">${val}</span>
+               </div>`;
+    }
+  });
+  contador++;
+  html += `<div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--borda); padding-bottom: 4px; margin-top: 4px;">
+           <span style="font-weight: 600;">${contador} - Tempo atual:</span>
+           <span id="ind-clima" style="text-align: right; color: var(--texto-2); font-size: 11px;">Buscando...</span>
+           </div>`;
+  document.getElementById('info-lista').innerHTML = html;
+  try {
+    const bbox = calcularBBox(d.feicaoMunicipio);
+    const lat = (bbox[1] + bbox[3]) / 2;
+    const lon = (bbox[0] + bbox[2]) / 2;
+    fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`)
+      .then(r => r.json())
+      .then(data => {
+        const w = data.current_weather;
+        if (w) {
+          const descTempo = (code) => {
+            if (code === 0) return 'Céu limpo';
+            if (code <= 3) return 'Parc. nublado';
+            if (code <= 48) return 'Nevoeiro';
+            if (code <= 55) return 'Chuvisco';
+            if (code <= 65) return 'Chuva';
+            if (code <= 77) return 'Neve';
+            if (code <= 82) return 'Pancadas de chuva';
+            if (code <= 99) return 'Tempestade';
+            return '';
+          };
+          document.getElementById('ind-clima').innerText = `${w.temperature}°C, ${descTempo(w.weathercode)}`;
+          document.getElementById('ind-clima').style.color = 'var(--texto)';
+        } else {
+          document.getElementById('ind-clima').innerText = 'N/A';
+        }
+      }).catch(() => document.getElementById('ind-clima').innerText = 'N/A');
+  } catch(e) { document.getElementById('ind-clima').innerText = 'N/A'; }
+}
+
+function renderizarPrancha() {
+  const d = app.dados;
+  if (!d) return;
+  const cor = document.getElementById('inpCor').value;
+  const autor = document.getElementById('inpAutor').value.trim();
+  const mostrarGraticula = document.getElementById('chkGraticula').checked;
+  const mostrarVizinhos = document.getElementById('chkVizinhos').checked;
+  const mostrarInsets = document.getElementById('chkInsets').checked;
+  const mostrarMancha = document.getElementById('chkManchaUrbana').checked;
+  const mostrarRodovias = document.getElementById('chkRodovias').checked;
+  const mostrarRios = document.getElementById('chkRios').checked;
+  const { W, H } = PRANCHA;
+  let s = '';
+  s += `<rect x="0" y="0" width="${W}" height="${H}" fill="#FFFFFF"/>`;
+  s += `<rect x="14" y="14" width="${W - 28}" height="${H - 28}" fill="none" stroke="${CORES.moldura}" stroke-width="2"/>`;
+  s += `<rect x="19" y="19" width="${W - 38}" height="${H - 38}" fill="none" stroke="${CORES.moldura}" stroke-width="0.6"/>`;
+  const titulo = `Mapa de Localização do Município de ${d.nomeMunicipio} – ${d.siglaUF}`;
+  s += `<text x="${W / 2}" y="48" text-anchor="middle" font-family="${SERIF}" font-size="22" font-weight="bold" fill="${CORES.texto}">${esc(titulo)}</text>`;
+  s += `<text x="${W / 2}" y="66" text-anchor="middle" font-family="${SERIF}" font-size="11" font-style="italic" fill="${CORES.texto3}">${esc(d.nomeUF)} · Brasil</text>`;
+  s += `<line x1="50" y1="78" x2="1073" y2="78" stroke="${CORES.vizinhoStroke}" stroke-width="0.8"/>`;
+  const principal = svgMapaPrincipal({ x: 50, y: 90, w: 720, h: 660, cor, mostrarGraticula, mostrarVizinhos, mostrarMancha, mostrarRodovias, mostrarRios, dados: d, nomeMunicipio: d.nomeMunicipio });
+  s += principal.svg;
+  const colX = 793, colW = 280;
+  if (mostrarInsets) {
+    const hLegenda = (mostrarMancha ? 1 : 0) + (mostrarRodovias ? 1 : 0) + (mostrarRios ? 1 : 0) + (mostrarVizinhos ? 1 : 0) >= 3 ? 175 : 135;
+    const yLegenda = 446;
+    const yMetadados = yLegenda + hLegenda + 18;
+    const hMetadados = 304 - hLegenda - 18;
+    s += svgInsetBrasil({ x: colX, y: 90, w: colW, h: 160, cor, dados: d, siglaUF: d.siglaUF, idUF: d.idUF });
+    s += svgInsetEstado({ x: colX, y: 268, w: colW, h: 160, cor, dados: d, nomeUF: d.nomeUF, extensao: principal.extensao });
+    s += svgLegenda({ x: colX, y: yLegenda, w: colW, h: hLegenda, cor, nomeMunicipio: d.nomeMunicipio, mostrarVizinhos, mostrarMancha, mostrarRodovias, mostrarRios });
+    s += svgMetadados({ x: colX, y: yMetadados, w: colW, h: hMetadados, autor, kmPorPx: principal.kmPorPx });
+  } else {
+    const yLegendaNoInsets = 90;
+    const yMetadadosNoInsets = 440;
+    s += svgLegenda({ x: colX, y: yLegendaNoInsets, w: colW, h: 330, cor, nomeMunicipio: d.nomeMunicipio, mostrarVizinhos, mostrarMancha, mostrarRodovias, mostrarRios });
+    s += svgMetadados({ x: colX, y: yMetadadosNoInsets, w: colW, h: 310, autor, kmPorPx: principal.kmPorPx });
+  }
+  document.getElementById('prancha').innerHTML = s;
+  renderizarIndicadores();
+}
+
+const elOverlay = document.getElementById('overlay');
+const elStatus = document.getElementById('status');
+
+function mostrarCarregando(mensagem) {
+  elOverlay.className = 'overlay';
+  elOverlay.innerHTML = `<div class="spinner" role="progressbar" aria-label="Carregando"></div><h2>Gerando a prancha…</h2><p>${esc(mensagem)}</p>`;
+  elOverlay.hidden = false;
+}
+
+function mostrarErro(mensagem) {
+  elOverlay.className = 'overlay erro';
+  elOverlay.innerHTML = `<div class="icone" aria-hidden="true">⚠️</div><h2>Não foi possível carregar os dados</h2><div class="caixa-erro">${esc(mensagem)}</div><p>Verifique sua conexão com a internet e tente novamente. As malhas são baixadas diretamente das APIs públicas do IBGE.</p><button class="btn primario" style="padding:0 22px" onclick="gerarMapa()">Tentar novamente</button>`;
+  elOverlay.hidden = false;
+}
+
+function ocultarOverlay() { elOverlay.hidden = true; }
+function definirStatus(texto, classe) {
+  elStatus.textContent = texto || '';
+  elStatus.className = 'status' + (classe ? ' ' + classe : '');
+}
+
+async function gerarMapa() {
+  const selEstado = document.getElementById('selEstado');
+  const selMunicipio = document.getElementById('selMunicipio');
+  const idUF = selEstado.value;
+  const idMunicipio = selMunicipio.value;
+  if (!idUF || !idMunicipio) return;
+  const uf = app.ufs.find((u) => String(u.id) === String(idUF));
+  const municipio = app.municipios.find((m) => String(m.id) === String(idMunicipio));
+  if (!uf || !municipio) return;
+  const inicio = performance.now();
+  document.getElementById('btnGerar').disabled = true;
+  const mostrarMancha = document.getElementById('chkManchaUrbana').checked;
+  const mostrarRodovias = document.getElementById('chkRodovias').checked;
+  const mostrarRios = document.getElementById('chkRios').checked;
+  mostrarCarregando(`Baixando malhas do IBGE para ${municipio.nome} – ${uf.sigla}. Isso pode levar alguns segundos na primeira vez.`);
+  definirStatus('Baixando malhas do IBGE…');
+  try {
+    const resultadosBase = await Promise.all([
+      buscarJson(API.malhaBrasil),
+      buscarJson(API.malhaBrasilUFs),
+      buscarJson(API.malhaEstado(idUF)),
+      buscarJson(API.malhaMunicipios(idUF)),
+      buscarJson(API.mundo),
+    ]);
+    const malhaBrasil = resultadosBase[0];
+    const malhaBrasilUFs = resultadosBase[1];
+    const malhaEstado = resultadosBase[2];
+    const malhaMunicipios = resultadosBase[3];
+    const malhaMundo = resultadosBase[4];
+    const codigosAmericaDoSul = ['ARG', 'BOL', 'CHL', 'COL', 'ECU', 'GUY', 'PRY', 'PER', 'SUR', 'URY', 'VEN', 'FLK', 'GUF'];
+    const malhaAmericaDoSul = {
+      type: 'FeatureCollection',
+      features: (malhaMundo.features || []).filter((f) => codigosAmericaDoSul.includes(f.id))
+    };
+    const feicaoMunicipio = localizarFeicaoMunicipio(malhaMunicipios, idMunicipio);
+    if (!feicaoMunicipio) throw new Error(`A malha do município "${municipio.nome}" (código ${idMunicipio}) não foi encontrada na resposta do IBGE.`);
+    const promessasDetalhadas = [];
+    if (mostrarMancha) {
+      const wfsUrl = `https://geoservicos.ibge.gov.br/geoserver/ows?service=WFS&version=1.1.0&request=GetFeature&typeName=CGMAT:qg_2022_600_setcensitario__v02&outputFormat=json&cql_filter=cd_mun='${idMunicipio}'`;
+      promessasDetalhadas.push(buscarJson(wfsUrl));
+    } else {
+      promessasDetalhadas.push(Promise.resolve(null));
+    }
+    if (mostrarRodovias) {
+      const bboxMun = calcularBBox(feicaoMunicipio);
+      const dLon = bboxMun[2] - bboxMun[0];
+      const dLat = bboxMun[3] - bboxMun[1];
+      const margin = 0.22;
+      const minLon = bboxMun[0] - dLon * margin;
+      const maxLon = bboxMun[2] + dLon * margin;
+      const minLat = bboxMun[1] - dLat * margin;
+      const maxLat = bboxMun[3] + dLat * margin;
+      const wfsUrl = `https://geoservicos.ibge.gov.br/geoserver/ows?service=WFS&version=1.1.0&request=GetFeature&typeName=CCAR:BC250_2023_Trecho_Rodoviario_L&outputFormat=json&cql_filter=BBOX(geom,${minLat},${minLon},${maxLat},${maxLon}) AND sigla IS NOT NULL AND sigla <> ' ' AND sigla <> ''`;
+      promessasDetalhadas.push(buscarJson(wfsUrl));
+    } else {
+      promessasDetalhadas.push(Promise.resolve(null));
+    }
+    if (mostrarRios) {
+      const bboxMun = calcularBBox(feicaoMunicipio);
+      const dLon = bboxMun[2] - bboxMun[0];
+      const dLat = bboxMun[3] - bboxMun[1];
+      const margin = 0.22;
+      const minLon = bboxMun[0] - dLon * margin;
+      const maxLon = bboxMun[2] + dLon * margin;
+      const minLat = bboxMun[1] - dLat * margin;
+      const maxLat = bboxMun[3] + dLat * margin;
+      const wfsUrl = `https://geoservicos.ibge.gov.br/geoserver/ows?service=WFS&version=1.1.0&request=GetFeature&typeName=CCAR:BC250_2023_Trecho_Drenagem_L&outputFormat=json&cql_filter=BBOX(geom,${minLat},${minLon},${maxLat},${maxLon}) AND nome IS NOT NULL AND nome <> ' ' AND nome <> ''`;
+      promessasDetalhadas.push(buscarJson(wfsUrl));
+    } else {
+      promessasDetalhadas.push(Promise.resolve(null));
+    }
+    promessasDetalhadas.push(
+      buscarJson(`https://servicodados.ibge.gov.br/api/v1/pesquisas/indicadores/29171|29765|60030|47001|30279|29167/resultados/${idMunicipio}`).catch(() => [])
+    );
+    // Busca dados do município incluindo aniversário
+    promessasDetalhadas.push(
+      buscarJson(`https://servicodados.ibge.gov.br/api/v1/localidades/municipios/${idMunicipio}`).catch(() => ({}))
+    );
+    const [malhaSetores, malhaRodovias, malhaRios, indicadoresRaw, municipioInfoRaw] = await Promise.all(promessasDetalhadas);
+    const indicadoresIBGE = Array.isArray(indicadoresRaw) ? indicadoresRaw : (indicadoresRaw && indicadoresRaw.value ? indicadoresRaw.value : []);
+    const municipioInfo = municipioInfoRaw || {};
+    app.dados = {
+      malhaBrasil, malhaBrasilUFs, malhaEstado, malhaMunicipios, feicaoMunicipio,
+      idUF, siglaUF: uf.sigla, nomeUF: uf.nome, nomeMunicipio: municipio.nome,
+      malhaSetores, malhaRodovias, malhaRios, malhaAmericaDoSul, indicadoresIBGE,
+      municipioInfo: municipioInfo,
+    };
+    app.gerado = true;
+    renderizarPrancha();
+    ocultarOverlay();
+    document.getElementById('btnExportar').disabled = false;
+    const segundos = ((performance.now() - inicio) / 1000).toFixed(1);
+    definirStatus(`Prancha gerada em ${segundos} s.`, 'ok');
+  } catch (erro) {
+    console.warn('Falha ao gerar o mapa:', erro);
+    mostrarErro(erro && erro.message ? erro.message : 'Erro de rede desconhecido.');
+    definirStatus('Falha ao baixar dados do IBGE.', 'erro');
+  } finally {
+    document.getElementById('btnGerar').disabled = false;
+  }
+}
+
+async function exportarPNG() {
+  if (!app.gerado) return;
+  const btn = document.getElementById('btnExportar');
+  btn.disabled = true;
+  definirStatus('Preparando PNG em alta resolução…');
+  try {
+    const original = document.getElementById('prancha');
+    const clone = original.cloneNode(true);
+    clone.setAttribute('width', PRANCHA.W);
+    clone.setAttribute('height', PRANCHA.H);
+    const xml = new XMLSerializer().serializeToString(clone);
+    const blob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const imagem = new Image();
+    await new Promise((resolver, rejeitar) => {
+      imagem.onload = resolver;
+      imagem.onerror = () => rejeitar(new Error('Falha ao rasterizar o SVG da prancha.'));
+      imagem.src = url;
+    });
+    const canvas = document.createElement('canvas');
+    canvas.width = EXPORT.W;
+    canvas.height = EXPORT.H;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, EXPORT.W, EXPORT.H);
+    ctx.drawImage(imagem, 0, 0, EXPORT.W, EXPORT.H);
+    URL.revokeObjectURL(url);
+    const nomeArquivo = `mapa_localizacao_${app.dados.nomeMunicipio}_${app.dados.siglaUF}`
+      .normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/\s+/g, '_');
+    await new Promise((resolver, rejeitar) => {
+      canvas.toBlob((blobPng) => {
+        if (!blobPng) { rejeitar(new Error('Falha ao gerar o PNG.')); return; }
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blobPng);
+        link.download = nomeArquivo + '.png';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(link.href), 4000);
+        resolver();
+      }, 'image/png');
+    });
+    definirStatus('PNG exportado em 3508 × 2480 px (≈ 300 DPI, A4 paisagem).', 'ok');
+  } catch (erro) {
+    console.warn('Falha na exportação:', erro);
+    definirStatus('Falha ao exportar o PNG. Tente gerar o mapa novamente.', 'erro');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function carregarEstados() {
+  const sel = document.getElementById('selEstado');
+  try {
+    definirStatus('Carregando estados…');
+    app.ufs = await buscarJson(API.estados);
+    if (!app.ufs || app.ufs.length === 0) {
+      throw new Error('Nenhum estado foi retornado da API');
+    }
+    sel.innerHTML = '<option value="">Selecione o estado…</option>';
+    app.ufs.forEach((u) => {
+      const opt = document.createElement('option');
+      opt.value = u.id;
+      opt.textContent = u.nome + ' (' + u.sigla + ')';
+      sel.appendChild(opt);
+    });
+    definirStatus('27 estados carregados', 'ok');
+  } catch (erro) {
+    console.warn('Falha ao carregar estados:', erro);
+    sel.innerHTML = '<option value="">Erro ao carregar estados</option>';
+    definirStatus('Não foi possível carregar a lista de estados do IBGE. Verifique a conexão e recarregue a página.', 'erro');
+  }
+}
+
+async function carregarMunicipios(idUF) {
+  const sel = document.getElementById('selMunicipio');
+  sel.disabled = true;
+  sel.innerHTML = '<option value="">Carregando municípios…</option>';
+  document.getElementById('btnGerar').disabled = true;
+  definirStatus('Buscando municípios…');
+  try {
+    app.municipios = await buscarJson(API.municipios(idUF));
+    if (!app.municipios || app.municipios.length === 0) {
+      throw new Error('Nenhum município foi retornado da API');
+    }
+    sel.innerHTML = '<option value="">Selecione o município…</option>';
+    app.municipios.forEach((m) => {
+      const opt = document.createElement('option');
+      opt.value = m.id;
+      opt.textContent = m.nome;
+      sel.appendChild(opt);
+    });
+    sel.disabled = false;
+    definirStatus(`${app.municipios.length} municípios carregados.`, 'ok');
+  } catch (erro) {
+    console.warn('Falha ao carregar municípios:', erro);
+    sel.innerHTML = '<option value="">Erro ao carregar municípios</option>';
+    definirStatus('Não foi possível carregar os municípios. Selecione o estado novamente.', 'erro');
+    sel.disabled = true;
+  }
+}
+
+document.getElementById('selEstado').addEventListener('change', (evento) => {
+  const idUF = evento.target.value;
+  document.getElementById('btnGerar').disabled = true;
+  if (idUF) {
+    carregarMunicipios(idUF);
+  } else {
+    const sel = document.getElementById('selMunicipio');
+    sel.disabled = true;
+    sel.innerHTML = '<option value="">Selecione a UF</option>';
+  }
+});
+
+document.getElementById('selMunicipio').addEventListener('change', (evento) => {
+  document.getElementById('btnGerar').disabled = !evento.target.value;
+});
+
+document.getElementById('btnGerar').addEventListener('click', gerarMapa);
+document.getElementById('btnExportar').addEventListener('click', exportarPNG);
+
+['inpCor', 'chkGraticula', 'chkVizinhos', 'chkInsets', 'chkManchaUrbana', 'chkRodovias', 'chkRios'].forEach((id) => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('change', () => { if (app.gerado) renderizarPrancha(); });
+});
+
+document.getElementById('chkManchaUrbana').addEventListener('change', async () => {
+  if (app.gerado) {
+    const mostrarMancha = document.getElementById('chkManchaUrbana').checked;
+    if (mostrarMancha && !app.dados.malhaSetores) {
+      const idMunicipio = document.getElementById('selMunicipio').value;
+      const selEstado = document.getElementById('selEstado');
+      const idUF = selEstado.value;
+      const uf = app.ufs.find((u) => String(u.id) === String(idUF));
+      const municipio = app.municipios.find((m) => String(m.id) === String(idMunicipio));
+      document.getElementById('btnGerar').disabled = true;
+      mostrarCarregando(`Baixando setores censitários do IBGE para ${municipio.nome} – ${uf.sigla}. Isso pode levar alguns segundos.`);
+      definirStatus('Baixando setores censitários…');
+      try {
+        const wfsUrl = `https://geoservicos.ibge.gov.br/geoserver/ows?service=WFS&version=1.1.0&request=GetFeature&typeName=CGMAT:qg_2022_600_setcensitario__v02&outputFormat=json&cql_filter=cd_mun='${idMunicipio}'`;
+        const malhaSetores = await buscarJson(wfsUrl);
+        app.dados.malhaSetores = malhaSetores;
+        renderizarPrancha();
+        ocultarOverlay();
+        definirStatus('Mancha urbana carregada com sucesso.', 'ok');
+      } catch (erro) {
+        console.warn('Falha ao carregar setores censitários:', erro);
+        definirStatus('Falha ao baixar setores censitários do IBGE.', 'erro');
+        ocultarOverlay();
+        document.getElementById('chkManchaUrbana').checked = false;
+      } finally {
+        document.getElementById('btnGerar').disabled = false;
+      }
+    } else {
+      renderizarPrancha();
+    }
+  }
+});
+
+document.getElementById('chkRodovias').addEventListener('change', async () => {
+  if (app.gerado) {
+    const mostrarRodovias = document.getElementById('chkRodovias').checked;
+    if (mostrarRodovias && !app.dados.malhaRodovias) {
+      const idMunicipio = document.getElementById('selMunicipio').value;
+      const selEstado = document.getElementById('selEstado');
+      const idUF = selEstado.value;
+      const uf = app.ufs.find((u) => String(u.id) === String(idUF));
+      const municipio = app.municipios.find((m) => String(m.id) === String(idMunicipio));
+      document.getElementById('btnGerar').disabled = true;
+      mostrarCarregando(`Baixando rodovias do IBGE para ${municipio.nome} – ${uf.sigla}. Isso pode levar alguns segundos.`);
+      definirStatus('Baixando rodovias…');
+      try {
+        const bboxMun = calcularBBox(app.dados.feicaoMunicipio);
+        const dLon = bboxMun[2] - bboxMun[0];
+        const dLat = bboxMun[3] - bboxMun[1];
+        const margin = 0.22;
+        const minLon = bboxMun[0] - dLon * margin;
+        const maxLon = bboxMun[2] + dLon * margin;
+        const minLat = bboxMun[1] - dLat * margin;
+        const maxLat = bboxMun[3] + dLat * margin;
+        const wfsUrl = `https://geoservicos.ibge.gov.br/geoserver/ows?service=WFS&version=1.1.0&request=GetFeature&typeName=CCAR:BC250_2023_Trecho_Rodoviario_L&outputFormat=json&cql_filter=BBOX(geom,${minLat},${minLon},${maxLat},${maxLon}) AND sigla IS NOT NULL AND sigla <> ' ' AND sigla <> ''`;
+        const malhaRodovias = await buscarJson(wfsUrl);
+        app.dados.malhaRodovias = malhaRodovias;
+        renderizarPrancha();
+        ocultarOverlay();
+        definirStatus('Rodovias carregadas com sucesso.', 'ok');
+      } catch (erro) {
+        console.warn('Falha ao carregar rodovias:', erro);
+        definirStatus('Falha ao baixar rodovias do IBGE.', 'erro');
+        ocultarOverlay();
+        document.getElementById('chkRodovias').checked = false;
+      } finally {
+        document.getElementById('btnGerar').disabled = false;
+      }
+    } else {
+      renderizarPrancha();
+    }
+  }
+});
+
+document.getElementById('chkRios').addEventListener('change', async () => {
+  if (app.gerado) {
+    const mostrarRios = document.getElementById('chkRios').checked;
+    if (mostrarRios && !app.dados.malhaRios) {
+      const idMunicipio = document.getElementById('selMunicipio').value;
+      const selEstado = document.getElementById('selEstado');
+      const idUF = selEstado.value;
+      const uf = app.ufs.find((u) => String(u.id) === String(idUF));
+      const municipio = app.municipios.find((m) => String(m.id) === String(idMunicipio));
+      document.getElementById('btnGerar').disabled = true;
+      mostrarCarregando(`Baixando rios do IBGE para ${municipio.nome} – ${uf.sigla}. Isso pode levar alguns segundos.`);
+      definirStatus('Baixando rios…');
+      try {
+        const bboxMun = calcularBBox(app.dados.feicaoMunicipio);
+        const dLon = bboxMun[2] - bboxMun[0];
+        const dLat = bboxMun[3] - bboxMun[1];
+        const margin = 0.22;
+        const minLon = bboxMun[0] - dLon * margin;
+        const maxLon = bboxMun[2] + dLon * margin;
+        const minLat = bboxMun[1] - dLat * margin;
+        const maxLat = bboxMun[3] + dLat * margin;
+        const wfsUrl = `https://geoservicos.ibge.gov.br/geoserver/ows?service=WFS&version=1.1.0&request=GetFeature&typeName=CCAR:BC250_2023_Trecho_Drenagem_L&outputFormat=json&cql_filter=BBOX(geom,${minLat},${minLon},${maxLat},${maxLon}) AND nome IS NOT NULL AND nome <> ' ' AND nome <> ''`;
+        const malhaRios = await buscarJson(wfsUrl);
+        app.dados.malhaRios = malhaRios;
+        renderizarPrancha();
+        ocultarOverlay();
+        definirStatus('Rios carregados com sucesso.', 'ok');
+      } catch (erro) {
+        console.warn('Falha ao carregar rios:', erro);
+        definirStatus('Falha ao baixar rios do IBGE.', 'erro');
+        ocultarOverlay();
+        document.getElementById('chkRios').checked = false;
+      } finally {
+        document.getElementById('btnGerar').disabled = false;
+      }
+    } else {
+      renderizarPrancha();
+    }
+  }
+});
+
+let temporizadorAutor = null;
+document.getElementById('inpAutor').addEventListener('input', () => {
+  clearTimeout(temporizadorAutor);
+  temporizadorAutor = setTimeout(() => { if (app.gerado) renderizarPrancha(); }, 250);
+});
+
+carregarEstados();
+</script>
+</body>
+</html>
